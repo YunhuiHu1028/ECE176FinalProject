@@ -25,5 +25,7 @@ train_loss = 0.3666, val_loss = 0.0599
 Need run more epochs e.g. 50 epochs
 Not finish evaluation yet
 
+
+
 Database: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
 -> Align&Cropped Images
