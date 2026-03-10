@@ -21,9 +21,16 @@ Using new model to learn, modified the loss function, add more weight one missin
 ## best_preview_v2.png
 Display original image, masked image, prediction image, and completed image
 
-train_loss = 0.3666, val_loss = 0.0599
-Need run more epochs e.g. 50 epochs
-Not finish evaluation yet
+
+
+
+
+
+
+
+#
+Best epoch: Epoch=28/30 | train_loss=0.3236 | val_loss=0.3228
+Evaluation accuracy: Test L1 Error: 0.05376023278580479
 
 
 
