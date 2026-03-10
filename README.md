@@ -30,6 +30,7 @@ Display original image, masked image, prediction image, and completed image
 
 #
 Best epoch: Epoch=28/30 | train_loss=0.3236 | val_loss=0.3228
+#
 Evaluation accuracy: Test L1 Error: 0.05376023278580479
 
 
