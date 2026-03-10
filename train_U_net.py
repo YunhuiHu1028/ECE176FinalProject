@@ -17,6 +17,21 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
 
 
+def split_dataset(data, val_frac=0.05, test_frac=0.05, seed=42):
+    n_total = len(data)
+    n_val = int(n_total * val_frac)
+    n_test = int(n_total * test_frac)
+    n_train = n_total - n_val - n_test
+
+    generator = torch.Generator().manual_seed(seed)
+    train_ds, val_ds, test_ds = random_split(
+        data,
+        [n_train, n_val, n_test],
+        generator=generator
+    )
+    return train_ds, val_ds, test_ds
+
+
 def l1_loss(pred, target, mask, eps=1e-8):
     hole = 1.0 - mask
     hole = hole.expand_as(target)
@@ -49,26 +64,33 @@ def save_viz(x, x_masked, mask, pred, save_path, max_n=4):
 def main():
     img_dir = r"C:\Users\jia65\ECE176 Dataset\img_align_celeba"
     file_dir = r"C:\Users\jia65\Desktop\ECE176"
+
     image_size = 128
     batch_size = 32
     num_workers = 4
     lr = 1e-3
-    epochs = 5
+    epochs = 30
     val_frac = 0.05
+    test_frac = 0.05
+
+    train_hist, val_hist = [], []
+
     seed = 42
     set_seed(seed)
+
     ckpt_dir = os.path.join(file_dir, "checkpoints")
     os.makedirs(ckpt_dir, exist_ok=True)
+
     best_path = os.path.join(ckpt_dir, "best_inpaint_net_v2.pth")
     viz_path = os.path.join(ckpt_dir, "best_preview_v2.png")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device:", device)
+
     data = CeleADataset(img_dir, image_size)
-    n_total = len(data)
-    n_val = int(n_total * val_frac)
-    n_train = n_total - n_val
-    generator = torch.Generator().manual_seed(seed)
-    train_ds, val_ds = random_split(data, [n_train, n_val], generator=generator)
+
+    train_ds, val_ds, test_ds = split_dataset(data, val_frac=val_frac, test_frac=test_frac, seed=seed)
+    print("train:", len(train_ds), "val:", len(val_ds), "test:", len(test_ds))
 
     train_loader = DataLoader(
         train_ds,
@@ -80,6 +102,7 @@ def main():
         prefetch_factor=2 if num_workers > 0 else None,
         drop_last=True,
     )
+
     val_loader = DataLoader(
         val_ds,
         batch_size=batch_size,
@@ -90,6 +113,7 @@ def main():
         prefetch_factor=2 if num_workers > 0 else None,
         drop_last=False,
     )
+
     model = UNetInpaint(base_ch=64, use_mask=True).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     best_val_loss = float("inf")
@@ -97,38 +121,55 @@ def main():
     for epoch in range(1, epochs + 1):
         model.train()
         train_loss = 0.0
+
         for x_masked, mask, x in train_loader:
             x_masked = x_masked.to(device, non_blocking=True)
             mask = mask.to(device, non_blocking=True)
             x = x.to(device, non_blocking=True)
+
             inp = torch.cat([x_masked, mask], dim=1)
             pred = model(inp)
             completed = x_masked * mask + pred * (1.0 - mask)
+
             loss_hole = l1_loss(completed, x, mask)
             loss_valid = torch.mean(torch.abs(completed - x) * mask)
             loss = loss_hole * 6.0 + loss_valid
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
             train_loss += loss.item()
+
         train_loss /= max(1, len(train_loader))
+
         model.eval()
         val_loss = 0.0
-
         first_batch = None
+
         with torch.no_grad():
             for x_masked, mask, x in val_loader:
                 if first_batch is None:
                     first_batch = (x_masked, mask, x)
+
                 x_masked = x_masked.to(device, non_blocking=True)
                 mask = mask.to(device, non_blocking=True)
                 x = x.to(device, non_blocking=True)
+
                 inp = torch.cat([x_masked, mask], dim=1)
                 pred = model(inp)
                 completed = x_masked * mask + pred * (1.0 - mask)
-                loss = l1_loss(completed, x, mask)
+
+                loss_hole = l1_loss(completed, x, mask)
+                loss_valid = torch.mean(torch.abs(completed - x) * mask)
+                loss = loss_hole * 6.0 + loss_valid
+
                 val_loss += loss.item()
+
         val_loss /= max(1, len(val_loader))
+
+        train_hist.append(train_loss)
+        val_hist.append(val_loss)
 
         print(f"Epoch={epoch}/{epochs} | train_loss={train_loss:.4f} | val_loss={val_loss:.4f}")
 
@@ -142,6 +183,9 @@ def main():
                     "best_val_loss": best_val_loss,
                     "mask_definition": "mask=1 known, 0 hole",
                     "image_size": image_size,
+                    "val_frac": val_frac,
+                    "test_frac": test_frac,
+                    "seed": seed,
                 },
                 best_path,
             )
@@ -159,6 +203,16 @@ def main():
             print(f"Saved preview: {viz_path}")
 
     print("======= Train Finish =======")
+
+    plt.figure()
+    plt.plot(train_hist, label="train")
+    plt.plot(val_hist, label="val")
+    plt.legend()
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.tight_layout()
+    plt.savefig(os.path.join(ckpt_dir, "loss_curve.png"), dpi=150)
+    plt.close()
 
 
 if __name__ == "__main__":
