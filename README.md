@@ -1,39 +1,54 @@
-# ECE176FinalProject
+# ECE176 Final Project
+
+This project studies the **image inpainting problem**, which tries to reconstruct the missing region of an image based on surrounding pixels.
+
+We trained two models:
+
+- **A simple CNN baseline**
+- **A U-Net model**
+
+Both models are trained on the **CelebA dataset**.
+
+Images are randomly masked during training and the model learns to reconstruct the missing area.
+
+---
+
+## Dataset
+
+Dataset used: **CelebA**
+
+Images are resized to **128 × 128** before training.
+
+Dataset split:
+
+- **Train:** 90%
+- **Validation:** 5%
+- **Test:** 5%
+
+---
+
+## Training Result
+
+Best training result:
+
+- **Best epoch:** 28 / 30
+- **Train loss:** 0.3236
+- **Validation loss:** 0.3228
+
+Evaluation result:
+
+- **Test L1 Error:** 0.05376
+
+---
 
 ## mask_generator.py
-Make a single mask for a random image, will return the original picture, picture with mask, and mask
 
-## dataset.py
-Loading data and generate random size of mask for each of them
+Generate a random rectangular mask for an image.
 
-## model.py
-Three layers CNN, baseline model
+The function returns:
 
-## train.py
-training
+- original image  
+- masked image  
+- mask  
 
-## model_U_net.py
-Using UNet to extract features more precisely
-
-## train_U_net.py
-Using new model to learn, modified the loss function, add more weight one missing area instead of half and half
-
-## best_preview_v2.png
-Display original image, masked image, prediction image, and completed image
-
-
-
-
-
-
-
-
-#
-Best epoch: Epoch=28/30 | train_loss=0.3236 | val_loss=0.3228
-#
-Evaluation accuracy: Test L1 Error: 0.05376023278580479
-
-
-
-Database: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
--> Align&Cropped Images
+Mask definition:
